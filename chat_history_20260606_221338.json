@@ -1,0 +1,14 @@
+[
+  {
+    "role": "system",
+    "content": "Kamu adalah asisten AI yang membantu. Jawab dalam Bahasa Indonesia."
+  },
+  {
+    "role": "user",
+    "content": "Halo apakah kamu mengingat saya"
+  },
+  {
+    "role": "assistant",
+    "content": "Halo! Saya senang untuk membantu Anda, tetapi saya tidak memiliki kemampuan untuk mengingat individu secara khusus. Saya adalah model bahasa yang dilatih pada dataset besar, dan saya tidak memiliki memori yang dapat menyimpan informasi tentang percakapan sebelumnya atau mengenali pengguna secara khusus.\n\nNamun, saya siap untuk membantu Anda dengan pertanyaan atau topik yang ingin Anda diskusikan sekarang! Apa yang bisa saya bantu hari ini?"
+  }
+]
