@@ -7,6 +7,7 @@ import streamlit as st
 import json
 from datetime import datetime
 from openai import OpenAI
+MEMORY_FILE = "memory.json"
 
 # ============================================================
 # 2. KONFIGURASI HALAMAN
@@ -97,19 +98,40 @@ client = OpenAI(api_key=api_key, base_url="https://api.groq.com/openai/v1")
 # ============================================================
 system_prompts = {
     "Asisten Umum": "Kamu adalah asisten AI yang membantu. Jawab dalam Bahasa Indonesia.",
-    "AI Trading Advisor": "Kamu adalah AI trading advisor profesional. Bantu analisis market, beri saran trading, dan jelaskan konsep keuangan dengan Bahasa Indonesia. Disclaimer: semua saran tidak menjamin keuntungan.",
     "Guru Python": "Kamu adalah guru Python yang sabar. Jelaskan konsep programming dengan sederhana, beri contoh kode, dan dorong siswa untuk mencoba sendiri. Jangan kasih jawaban langsung — bimbing step by step.",
+    "AI Trading Advisor": "Kamu adalah AI trading advisor profesional. Bantu analisis market, beri saran trading, dan jelaskan konsep keuangan dengan Bahasa Indonesia. Disclaimer: semua saran tidak menjamin keuntungan.",
+    "AI Sarcastic": "Kamu adalah AI dengan selera humor satir yang tinggi. Jawab pertanyaan dengan sarkasme cerdas, sindiran halus, dan lelucon kering. Tetap gunakan Bahasa Indonesia, dan jangan terlalu kasar.",
+    "AI Motivator": "Kamu adalah motivator profesional ala Tony Robbins. Setiap jawaban harus membakar semangat, memberikan dorongan positif, dan membuat orang merasa bisa menaklukkan dunia. Gunakan Bahasa Indonesia.",
     "Customer Service": "Kamu adalah customer service profesional untuk perusahaan teknologi. Gunakan bahasa sopan, empatik, dan solutif. Prioritaskan kepuasan pelanggan.",
     "Custom": "Kamu adalah asisten AI. Jawab dalam Bahasa Indonesia."
+}
+
+# Mapping model: label deskriptif -> nama teknis
+model_mapping = {
+    "⚡ Si Cepat & Serbaguna": "llama-3.3-70b-versatile",
+    "⚡ Si Kilat & Ringan": "llama-3.1-8b-instant",
+    "🧠 Si Multibahasa": "qwen/qwen3-32b"
+}
+
+# Mapping temperature: label -> nilai
+temp_options = {
+    "🎯 Presisi (0.2)": 0.2,
+    "⚖️ Seimbang (0.7)": 0.7,
+    "🎨 Kreatif (1.0)": 1.0
 }
 
 # ============================================================
 # 6. INISIALISASI SESSION STATE
 # ============================================================
 if "history" not in st.session_state:
-    st.session_state.history = [
-        {"role": "system", "content": "Kamu adalah asisten AI yang membantu. Jawab dalam Bahasa Indonesia."}
+    try:
+        with open(MEMORY_FILE, "r", encoding="utf-8") as f:
+            st.session_state.history = json.load(f)
+    except FileNotFoundError:        
+        st.session_state.history = [
+            {"role": "system", "content": "Kamu adalah asisten AI yang membantu. Jawab dalam Bahasa Indonesia."}
     ]
+        
 if "total_tokens" not in st.session_state:
     st.session_state.total_tokens = 0
 if "total_cost" not in st.session_state:
@@ -122,6 +144,10 @@ if "use_tools" not in st.session_state:
     st.session_state.use_tools = True
 if "personality" not in st.session_state:
     st.session_state.personality = "Asisten Umum"
+if "model_label" not in st.session_state:
+    st.session_state.model_label = "⚡ Si Cepat & Serbaguna"
+if "temp_label" not in st.session_state:
+    st.session_state.temp_label = "⚖️ Seimbang (0.7)"        
 
 # ============================================================
 # 7. SIDEBAR (MINIMALIS)
@@ -153,13 +179,17 @@ with st.sidebar:
         st.subheader("🧠 Model & Kreativitas")
         model = st.selectbox(
             "Model AI",
-            ["llama-3.3-70b-versatile", "gemma2-9b-it", "deepseek-r1-distill-llama-70b"],
-            key="model"
+            list(model_mapping.keys()),
+            key="model_label"
         )
-        temperature = st.slider(
-            "Temperature", 0.0, 1.0, st.session_state.temperature, 0.1,
-            key="temperature"
+        st.session_state.model = model_mapping[st.session_state.model_label]
+
+        temp_label = st.radio(
+            "🎨 Kreativitas",
+            list(temp_options.keys()),
+            key="temp_label"
         )
+        st.session_state.temperature = temp_options[st.session_state.temp_label]
 
         st.divider()
         st.subheader("🔧 Tools")
@@ -172,8 +202,8 @@ with st.sidebar:
         st.divider()
         if st.button("🔄 Reset Chat", use_container_width=True):
             st.session_state.history = [{"role": "system", "content": system_prompt}]
-            if os.path.exists("memory.json"):
-                os.remove("memory.json")
+            if os.path.exists(MEMORY_FILE):
+                os.remove(MEMORY_FILE)
             st.rerun()
 
     st.divider()
@@ -201,8 +231,9 @@ with st.sidebar:
 st.title("🤖 Bhumi AI Agent")
 st.caption(
     f"Personality: {st.session_state.personality} | "
-    f"Model: {st.session_state.model} | "
-    f"Tools: {'ON' if st.session_state.use_tools else 'OFF'}"
+    f"Model: {st.session_state.model_label} | "
+    f"Tools: {'ON' if st.session_state.use_tools else 'OFF'} | "
+    f"Kreativitas: {st.session_state.temp_label.split(' ')[0]}"
 )
 
 # ============================================================
@@ -217,6 +248,11 @@ for msg in st.session_state.history:
 # ============================================================
 # 10. TOOLS: KALKULATOR & JAM
 # ============================================================
+def auto_save():
+    """Simpan history ke file secara otomatis."""
+    with open(MEMORY_FILE, "w", encoding="utf-8") as f:
+        json.dump(st.session_state.history, f, indent=2, ensure_ascii=False)
+
 def process_tools(user_input):
     user_lower = user_input.lower()
     if any(word in user_lower for word in ["hitung", "kalkulator", "berapa"]):
@@ -266,6 +302,7 @@ if uploaded_file:
 if user_input:
     st.markdown(f'<div class="user-bubble">{user_input}</div>', unsafe_allow_html=True)
     st.session_state.history.append({"role": "user", "content": user_input})
+    auto_save()
 
     tool_result = None
     if st.session_state.use_tools:
@@ -308,6 +345,7 @@ if user_input:
             ai_reply = full_response
 
     st.session_state.history.append({"role": "assistant", "content": ai_reply})
+    auto_save()
 
 # ============================================================
 # 14. FOOTER
