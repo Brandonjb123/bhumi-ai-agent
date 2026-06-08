@@ -9,7 +9,7 @@ from datetime import datetime
 from openai import OpenAI
 
 # ============================================================
-# 2. KONFIGURASI HALAMAN (Favicon, Judul, Layout)
+# 2. KONFIGURASI HALAMAN
 # ============================================================
 st.set_page_config(
     page_title="Bhumi AI Agent",
@@ -19,16 +19,16 @@ st.set_page_config(
 )
 
 # ============================================================
-# 3. CUSTOM CSS SEDERHANA (Background halus, chat bubble)
+# 3. CUSTOM CSS (HANYA CHAT BUBBLE & FOOTER)
 # ============================================================
 st.markdown("""
 <style>
-    /* Background halaman */
+    /* Background */
     .stApp {
         background-color: var(--background-color);
     }
 
-    /* Chat bubble untuk user - mode terang */
+    /* Chat bubble user */
     .user-bubble {
         background-color: #e9ecef;
         color: #000000;
@@ -41,7 +41,7 @@ st.markdown("""
         clear: both;
     }
 
-    /* Chat bubble untuk AI - mode terang */
+    /* Chat bubble AI */
     .ai-bubble {
         background-color: #d1ecf1;
         color: #000000;
@@ -54,12 +54,11 @@ st.markdown("""
         clear: both;
     }
 
-    /* Override untuk dark mode */
+    /* Dark mode */
     [data-theme="dark"] .user-bubble {
         background-color: #2b2b2b;
         color: #f0f0f0;
     }
-
     [data-theme="dark"] .ai-bubble {
         background-color: #1a3a4a;
         color: #f0f0f0;
@@ -77,6 +76,7 @@ st.markdown("""
         font-size: 0.85rem;
         color: #6c757d;
         border-top: 1px solid #dee2e6;
+        z-index: 1000;
     }
     [data-theme="dark"] .footer {
         background-color: #1e1e1e;
@@ -93,38 +93,52 @@ api_key = os.getenv("GROQ_API_KEY")
 client = OpenAI(api_key=api_key, base_url="https://api.groq.com/openai/v1")
 
 # ============================================================
-# 5. INISIALISASI HISTORY
+# 5. SYSTEM PROMPTS
+# ============================================================
+system_prompts = {
+    "Asisten Umum": "Kamu adalah asisten AI yang membantu. Jawab dalam Bahasa Indonesia.",
+    "AI Trading Advisor": "Kamu adalah AI trading advisor profesional. Bantu analisis market, beri saran trading, dan jelaskan konsep keuangan dengan Bahasa Indonesia. Disclaimer: semua saran tidak menjamin keuntungan.",
+    "Guru Python": "Kamu adalah guru Python yang sabar. Jelaskan konsep programming dengan sederhana, beri contoh kode, dan dorong siswa untuk mencoba sendiri. Jangan kasih jawaban langsung — bimbing step by step.",
+    "Customer Service": "Kamu adalah customer service profesional untuk perusahaan teknologi. Gunakan bahasa sopan, empatik, dan solutif. Prioritaskan kepuasan pelanggan.",
+    "Custom": "Kamu adalah asisten AI. Jawab dalam Bahasa Indonesia."
+}
+
+# ============================================================
+# 6. INISIALISASI SESSION STATE
 # ============================================================
 if "history" not in st.session_state:
     st.session_state.history = [
         {"role": "system", "content": "Kamu adalah asisten AI yang membantu. Jawab dalam Bahasa Indonesia."}
     ]
+if "total_tokens" not in st.session_state:
+    st.session_state.total_tokens = 0
+if "total_cost" not in st.session_state:
+    st.session_state.total_cost = 0.0
+if "model" not in st.session_state:
+    st.session_state.model = "llama-3.3-70b-versatile"
+if "temperature" not in st.session_state:
+    st.session_state.temperature = 0.7
+if "use_tools" not in st.session_state:
+    st.session_state.use_tools = True
+if "personality" not in st.session_state:
+    st.session_state.personality = "Asisten Umum"
 
 # ============================================================
-# 6. SIDEBAR (DENGAN EXPANDER)
+# 7. SIDEBAR (MINIMALIS)
 # ============================================================
 with st.sidebar:
-    st.title("🤖 Bhumi AI Agent")
-    st.caption("v5.0 — Your Personal Assistant")
+    st.title("🤖 Bhumi AI")
 
-    with st.expander("🎭 Personality", expanded=False):
+    with st.expander("⚙️ Settings", expanded=False):
+        st.subheader("🎭 Personality")
         personality = st.selectbox(
             "Pilih kepribadian",
-            ["Asisten Umum", "AI Trading Advisor", "Guru Python", "Customer Service", "Custom"],
-            label_visibility="collapsed"
+            list(system_prompts.keys()),
+            key="personality"
         )
-
-        system_prompts = {
-            "Asisten Umum": "Kamu adalah asisten AI yang membantu. Jawab dalam Bahasa Indonesia.",
-            "AI Trading Advisor": "Kamu adalah AI trading advisor profesional. Bantu analisis market, beri saran trading, dan jelaskan konsep keuangan dengan Bahasa Indonesia. Disclaimer: semua saran tidak menjamin keuntungan.",
-            "Guru Python": "Kamu adalah guru Python yang sabar. Jelaskan konsep programming dengan sederhana, beri contoh kode, dan dorong siswa untuk mencoba sendiri. Jangan kasih jawaban langsung — bimbing step by step.",
-            "Customer Service": "Kamu adalah customer service profesional untuk perusahaan teknologi. Gunakan bahasa sopan, empatik, dan solutif. Prioritaskan kepuasan pelanggan.",
-            "Custom": "Kamu adalah asisten AI. Jawab dalam Bahasa Indonesia."
-        }
-
         if personality == "Custom":
             custom_prompt = st.text_area(
-                "Tulis system prompt lo sendiri",
+                "Tulis system prompt",
                 value="Kamu adalah asisten AI. Jawab dalam Bahasa Indonesia.",
                 height=100
             )
@@ -135,73 +149,64 @@ with st.sidebar:
         if st.session_state.history[0]["content"] != system_prompt:
             st.session_state.history[0] = {"role": "system", "content": system_prompt}
 
-    with st.expander("🔧 Tools", expanded=False):
-        use_tools = st.checkbox("Aktifkan Tools (Kalkulator + Jam)", value=True)
-
-    with st.expander("🧠 Model & Kreativitas", expanded=False):
+        st.divider()
+        st.subheader("🧠 Model & Kreativitas")
         model = st.selectbox(
             "Model AI",
             ["llama-3.3-70b-versatile", "gemma2-9b-it", "deepseek-r1-distill-llama-70b"],
-            label_visibility="collapsed"
+            key="model"
         )
-        temperature = st.slider("Temperature", 0.0, 1.0, 0.7, 0.1)
+        temperature = st.slider(
+            "Temperature", 0.0, 1.0, st.session_state.temperature, 0.1,
+            key="temperature"
+        )
 
-    with st.expander("📎 Upload File", expanded=False):
-        uploaded_file = st.file_uploader("Pilih file", type=["txt", "py", "js", "html", "css", "md"], label_visibility="collapsed")
+        st.divider()
+        st.subheader("🔧 Tools")
+        use_tools = st.checkbox(
+            "Aktifkan (Kalkulator & Jam)",
+            value=st.session_state.use_tools,
+            key="use_tools"
+        )
 
-    st.divider()
-
-    col1, col2 = st.columns(2)
-    with col1:
-        if st.button("🔄 Reset", use_container_width=True):
+        st.divider()
+        if st.button("🔄 Reset Chat", use_container_width=True):
             st.session_state.history = [{"role": "system", "content": system_prompt}]
+            if os.path.exists("memory.json"):
+                os.remove("memory.json")
             st.rerun()
-    with col2:
-        if st.button("💾 Simpan", use_container_width=True):
-            # Buat teks dari history
-            lines = []
-            for msg in st.session_state.history:
-                if msg["role"] == "user":
-                    lines.append(f"👤 User: {msg['content']}")
-                elif msg["role"] == "assistant":    
-                    lines.append(f"🤖 AI: {msg['content']}")
-            full_text = "\n\n.join(lines)"
-            st.download_button(
-                label="Klik untuk mengunduh",
-                data = full_text,
-                file_name=f"chat_history_{datetime.now().strftime('%Y%m%d_%H%M%S')}.txt",
-                mime = "text/plain"
-            )
-
-            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-            filename = f"chat_history_{timestamp}.json"
-            with open(filename, "w", encoding="utf-8") as f:
-                json.dump(st.session_state.history, f, indent=2, ensure_ascii=False)
-            st.success(f"✅ {filename}")
 
     st.divider()
+    with st.expander("📊 Usage", expanded=False):
+        total_msg = len([m for m in st.session_state.history if m["role"] != "system"])
+        st.metric("Total Pesan", total_msg)
+        st.metric("Token Terpakai", st.session_state.total_tokens)
+        st.metric("Estimasi Biaya", f"${st.session_state.total_cost:.4f}")
 
-    # Inisialisasi token counter (jika belum ada)
-    if "total_tokens" not in st.session_state:
-        st.session_state.total_tokens = 0
-    if "total_cost" not in st.session_state:
-        st.session_state.total_cost = 0.0
-
-    total_msg = len([m for m in st.session_state.history if m["role"] != "system"])
-    st.metric("Total Pesan", total_msg)
-    st.metric("Token Terpakai", st.session_state.total_tokens)
-    st.metric("Estimasi Biaya", f"${st.session_state.total_cost:.4f}")
-    st.caption(f"🧠 {model}")
-    st.caption(f"🎨 Temperature: {temperature:.1f}")
+    st.divider()
+    # ============================================================
+    # UPLOAD FILE DIPINDAHKAN KE SIDEBAR
+    # ============================================================
+    with st.expander("📎 Lampiran", expanded=False):
+        uploaded_file = st.file_uploader(
+            "Upload file",
+            type=["txt", "py", "md", "jpg", "jpeg", "png"],
+            label_visibility="collapsed",
+            key="sidebar_file_uploader"
+        )
 
 # ============================================================
-# 7. HEADER HALAMAN UTAMA
+# 8. HEADER UTAMA
 # ============================================================
 st.title("🤖 Bhumi AI Agent")
-st.caption(f"Personality: {personality} | Model: {model} | Tools: {'ON' if use_tools else 'OFF'}")
+st.caption(
+    f"Personality: {st.session_state.personality} | "
+    f"Model: {st.session_state.model} | "
+    f"Tools: {'ON' if st.session_state.use_tools else 'OFF'}"
+)
 
 # ============================================================
-# 8. TAMPILKAN HISTORY DENGAN CHAT BUBBLE KUSTOM
+# 9. TAMPILKAN HISTORY
 # ============================================================
 for msg in st.session_state.history:
     if msg["role"] == "user":
@@ -210,59 +215,66 @@ for msg in st.session_state.history:
         st.markdown(f'<div class="ai-bubble">{msg["content"]}</div>', unsafe_allow_html=True)
 
 # ============================================================
-# 9. TOOLS: KALKULATOR & JAM
+# 10. TOOLS: KALKULATOR & JAM
 # ============================================================
 def process_tools(user_input):
     user_lower = user_input.lower()
-
-    if any(word in user_lower for word in ["hitung", "kalkulator", "berapa", "+", "-", "*", "/"]):
+    if any(word in user_lower for word in ["hitung", "kalkulator", "berapa"]):
         try:
             expr = user_input.split(":")[-1] if ":" in user_input else user_input
             result = eval(expr)
             return f"🧮 Hasil: {result}"
         except:
             return None
-
     if any(word in user_lower for word in ["jam", "waktu", "sekarang", "tanggal", "hari ini"]):
         now = datetime.now()
         return f"🕐 Sekarang: {now.strftime('%A, %d %B %Y - %H:%M:%S WIB')}"
-
     return None
 
 # ============================================================
-# 10. PROSES FILE UPLOAD
-# ============================================================
-if uploaded_file:
-    file_content = uploaded_file.read()
-    try:
-        file_text = file_content.decode("utf-8")
-        st.markdown(f'<div class="user-bubble">📎 Upload: {uploaded_file.name}</div>', unsafe_allow_html=True)
-        st.session_state.history.append({
-            "role": "user",
-            "content": f"[Upload file: {uploaded_file.name}]\n\n{file_text[:2000]}"
-        })
-        st.rerun()
-    except:
-        st.warning("⚠️ File tidak bisa dibaca.")
-
-# ============================================================
-# 11. INPUT USER & RESPONS AI (DENGAN STREAMING)
+# 11. INPUT CHAT (STICKY OTOMATIS)
 # ============================================================
 user_input = st.chat_input("Ketik pesan lo...")
 
+# ============================================================
+# 12. PROSES FILE UPLOAD (JIKA ADA)
+# ============================================================
+if uploaded_file:
+    if uploaded_file.type in ["image/jpeg", "image/png"]:
+        st.image(uploaded_file, caption=f"📷 {uploaded_file.name}", width=300)
+        st.session_state.history.append({
+            "role": "user",
+            "content": f"[Mengirim gambar: {uploaded_file.name}]"
+        })
+    else:
+        try:
+            file_text = uploaded_file.read().decode("utf-8")
+            st.markdown(f'<div class="user-bubble">📎 Upload: {uploaded_file.name}</div>', unsafe_allow_html=True)
+            st.session_state.history.append({
+                "role": "user",
+                "content": f"[Upload file: {uploaded_file.name}]\n\n{file_text[:2000]}"
+            })
+        except:
+            st.warning("⚠️ File tidak bisa dibaca.")
+    # Setelah upload, reset widget dan rerun
+    st.session_state.sidebar_file_uploader = None
+    st.rerun()
+
+# ============================================================
+# 13. PROSES INPUT & KIRIM PESAN
+# ============================================================
 if user_input:
     st.markdown(f'<div class="user-bubble">{user_input}</div>', unsafe_allow_html=True)
     st.session_state.history.append({"role": "user", "content": user_input})
 
     tool_result = None
-    if use_tools:
+    if st.session_state.use_tools:
         tool_result = process_tools(user_input)
 
     if tool_result:
         ai_reply = tool_result
         st.markdown(f'<div class="ai-bubble">{ai_reply}</div>', unsafe_allow_html=True)
-        # Token untuk tools = 0, tapi kita bisa beri flag
-        st.session_state.total_tokens += 0 # opsional
+        st.session_state.total_tokens += 0
     else:
         # --- STREAMING ---
         with st.chat_message("assistant"):
@@ -271,11 +283,11 @@ if user_input:
 
         with st.spinner("🤔 Berpikir..."):
             stream = client.chat.completions.create(
-                model=model,
+                model=st.session_state.model,
                 messages=st.session_state.history,
-                temperature=temperature,
+                temperature=st.session_state.temperature,
                 stream=True,
-                stream_options={"include_usage": True} # minta info token di akhir
+                stream_options={"include_usage": True}
             )
 
             for chunk in stream:
@@ -285,26 +297,23 @@ if user_input:
                 if delta and delta.content is not None:
                     full_response += delta.content
                     message_placeholder.markdown(full_response + "▌")
-                # Cek apakah chunk ini mengandung usage (chunk terakhir)
                 if hasattr(chunk, "usage") and chunk.usage is not None:
                     input_tokens = chunk.usage.prompt_tokens
                     output_tokens = chunk.usage.completion_tokens
                     st.session_state.total_tokens += (input_tokens + output_tokens)
-                    # Estimasi biaya (Llama 3.3 70B: $0.59/$0.79 per 1M token input/output)
                     cost = (input_tokens * 0.00000059) + (output_tokens * 0.00000079)
-                    st.session_state.total_cost += cost    
+                    st.session_state.total_cost += cost
 
             message_placeholder.markdown(full_response)
             ai_reply = full_response
 
     st.session_state.history.append({"role": "assistant", "content": ai_reply})
-    # st.rerun()
 
 # ============================================================
-# 12. FOOTER
+# 14. FOOTER
 # ============================================================
 st.markdown("""
 <div class="footer">
-    🚀 Dibuat oleh Brandon &copy; 2025 | Portfolio AI Engineer
+    🚀 Dibuat oleh Brandon &copy; 2026 | Portfolio AI Engineer
 </div>
 """, unsafe_allow_html=True)
