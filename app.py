@@ -7,7 +7,6 @@ import streamlit as st
 import json
 from datetime import datetime
 from openai import OpenAI
-MEMORY_FILE = "memory.json"
 
 # ============================================================
 # 2. KONFIGURASI HALAMAN
@@ -124,12 +123,8 @@ temp_options = {
 # 6. INISIALISASI SESSION STATE
 # ============================================================
 if "history" not in st.session_state:
-    try:
-        with open(MEMORY_FILE, "r", encoding="utf-8") as f:
-            st.session_state.history = json.load(f)
-    except FileNotFoundError:        
-        st.session_state.history = [
-            {"role": "system", "content": "Kamu adalah asisten AI yang membantu. Jawab dalam Bahasa Indonesia."}
+    st.session_state.history = [
+        {"role": "system", "content": "Kamu adalah asisten AI yang membantu. Jawab dalam Bahasa Indonesia."}
     ]
         
 if "total_tokens" not in st.session_state:
@@ -200,18 +195,19 @@ with st.sidebar:
         )
 
         st.divider()
-        if st.button("🔄 Reset Chat", use_container_width=True):
+        if st.button("🔄 New Chat", use_container_width=True):
             st.session_state.history = [{"role": "system", "content": system_prompt}]
-            if os.path.exists(MEMORY_FILE):
-                os.remove(MEMORY_FILE)
             st.rerun()
 
     st.divider()
-    with st.expander("📊 Usage", expanded=False):
-        total_msg = len([m for m in st.session_state.history if m["role"] != "system"])
-        st.metric("Total Pesan", total_msg)
-        st.metric("Token Terpakai", st.session_state.total_tokens)
-        st.metric("Estimasi Biaya", f"${st.session_state.total_cost:.4f}")
+    with st.expander("📝 Riwayat Percakapan", expanded=False):
+        # Ambil 10 pesan terakhir (bukan system prompt)
+        chat_msgs = [m for m in st.session_state.history if m["role"] != "system"]
+        for msg in chat_msgs[-10:]:
+            if msg["role"] == "user":
+                st.caption(f"👤 {msg['content'][:60]}...")
+            elif msg["role"] == "assistant":
+                st.caption(f"🤖 {msg['content'][:60]}...")
 
     st.divider()
     # ============================================================
@@ -248,10 +244,6 @@ for msg in st.session_state.history:
 # ============================================================
 # 10. TOOLS: KALKULATOR & JAM
 # ============================================================
-def auto_save():
-    """Simpan history ke file secara otomatis."""
-    with open(MEMORY_FILE, "w", encoding="utf-8") as f:
-        json.dump(st.session_state.history, f, indent=2, ensure_ascii=False)
 
 def process_tools(user_input):
     user_lower = user_input.lower()
@@ -302,7 +294,6 @@ if uploaded_file:
 if user_input:
     st.markdown(f'<div class="user-bubble">{user_input}</div>', unsafe_allow_html=True)
     st.session_state.history.append({"role": "user", "content": user_input})
-    auto_save()
 
     tool_result = None
     if st.session_state.use_tools:
@@ -345,7 +336,6 @@ if user_input:
             ai_reply = full_response
 
     st.session_state.history.append({"role": "assistant", "content": ai_reply})
-    auto_save()
 
 # ============================================================
 # 14. FOOTER
