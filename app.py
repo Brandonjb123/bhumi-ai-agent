@@ -251,16 +251,32 @@ for msg in st.session_state.history:
 # ============================================================
 def get_weather(location):
     try:
+        if not location or not location.strip():
+            return "❌ Tolong sebutkan nama kotanya. Contoh: 'Cuaca di Jakarta'"
+        
+        # Geocoding
         geo_url = f"https://geocoding-api.open-meteo.com/v1/search?name={location}&count=1"
         geo_res = requests.get(geo_url).json()
         if not geo_res.get("results"):
             return f"❌ Kota '{location}' tidak ditemukan."
+        
         lat = geo_res["results"][0]["latitude"]
         lon = geo_res["results"][0]["longitude"]
-        weather_url = f"https://api.open-meteo.com/v1/forecast?latitude={lat}&longitude={lon}&current_weather=true"
+        
+        # Cuaca
+        weather_url = (
+            f"https://api.open-meteo.com/v1/forecast?"
+            f"latitude={lat}&longitude={lon}&current_weather=true"
+        )
         weather_res = requests.get(weather_url).json()
+        
+        # Cek apakah 'current_weather' ada
+        if "current_weather" not in weather_res:
+            return f"⚠️ Data cuaca untuk '{location}' tidak tersedia saat ini (respons: {weather_res.get('reason', 'tidak diketahui')})"
+        
         current = weather_res["current_weather"]
         return f"🌤️ Cuaca di {location}: {current['temperature']}°C, angin {current['windspeed']} km/jam."
+    
     except Exception as e:
         return f"❌ Gagal ambil cuaca: {e}"
 
