@@ -8,19 +8,21 @@ Full-stack AI chatbot web app built with **Python**, **Streamlit**, and **Groq A
 
 ## ✨ Fitur
 
-- 💬 **Chat Interaktif** — Ngobrol natural dengan AI, streaming response real-time.
-- 🎭 **Personality Selector** — Pilih kepribadian AI: Asisten Umum, Guru Python, Trading Advisor, Customer Service, Sarcastic, Motivator.
-- 🧠 **Multi-Model** — Dukungan Llama 3.3, DeepSeek-R1, Gemma 2 via Groq API.
-- 🔧 **Tools Cerdas** — Kalkulator, pengecekan waktu, dan lainnya (auto-deteksi).
-- 📎 **Upload File** — Baca file .txt langsung dari chat.
+- 💬 **Streaming Chat** — Respons AI yang mulus dan real‑time.
+- 🏷️ **Model Selector Deskriptif** — Pilih AI dengan label ramah: ⚡ Si Cepat & Serbaguna, ⚡ Si Kilat & Ringan, 🧠 Si Multibahasa.
+- 🎨 **Temperature 3 Tombol** — Atur kreativitas AI: 🎯 Presisi, ⚖️ Seimbang, atau 🎨 Kreatif.
+- 🎭 **Personality Selector** — Pilih kepribadian AI: Asisten Umum, Guru Python, Trading Advisor, Sarcastic, Motivator, Customer Service, Custom.
+- 🧠 **Multi‑Model** — Dukungan Llama 3.3 70B, Llama 3.1 8B, Qwen 3 32B via Groq API.
+- 🔧 **Tools (Kalkulator & Jam)** — Bantu hitung dan cek waktu langsung di chat.
+- 📎 **Upload File** — Dukungan file teks (`.txt`, `.py`, `.md`) dan gambar (`.jpg`, `.png`).
+- 💾 **Auto‑save History** — Riwayat chat otomatis tersimpan dan pulih saat dibuka kembali.
 - 🌙 **Dark Mode** — Tampilan nyaman di segala kondisi.
 - 📊 **Token Counter** — Pantau pemakaian token & estimasi biaya.
-- 💾 **Simpan & Download History** — Riwayat chat bisa disimpan kapan saja.
 
 ## 🛠️ Tech Stack
 
 - **Frontend:** Streamlit
-- **AI Model:** Groq API (Llama 3.3 70B, DeepSeek-R1, Gemma 2)
+- **AI Model:** Groq API (Llama 3.3 70B, Llama 3.1 8B, Qwen 3 32B)
 - **Bahasa:** Python 3.11
 - **Deployment:** Streamlit Community Cloud
 
