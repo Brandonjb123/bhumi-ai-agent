@@ -5,6 +5,7 @@ from dotenv import load_dotenv
 import os
 import streamlit as st
 import json
+import requests
 from datetime import datetime
 from openai import OpenAI
 
@@ -23,12 +24,9 @@ st.set_page_config(
 # ============================================================
 st.markdown("""
 <style>
-    /* Background */
     .stApp {
         background-color: var(--background-color);
     }
-
-    /* Chat bubble user */
     .user-bubble {
         background-color: #e9ecef;
         color: #000000;
@@ -40,8 +38,6 @@ st.markdown("""
         float: right;
         clear: both;
     }
-
-    /* Chat bubble AI */
     .ai-bubble {
         background-color: #d1ecf1;
         color: #000000;
@@ -53,8 +49,6 @@ st.markdown("""
         float: left;
         clear: both;
     }
-
-    /* Dark mode */
     [data-theme="dark"] .user-bubble {
         background-color: #2b2b2b;
         color: #f0f0f0;
@@ -63,8 +57,6 @@ st.markdown("""
         background-color: #1a3a4a;
         color: #f0f0f0;
     }
-
-    /* Footer */
     .footer {
         position: fixed;
         bottom: 0;
@@ -96,7 +88,25 @@ client = OpenAI(api_key=api_key, base_url="https://api.groq.com/openai/v1")
 # 5. SYSTEM PROMPTS
 # ============================================================
 system_prompts = {
-    "Asisten Umum": "Kamu adalah asisten AI yang membantu. Jawab dalam Bahasa Indonesia.",
+    "Asisten Umum": """Kamu adalah asisten AI yang membantu. Kamu punya akses ke tools berikut:
+- cuaca: untuk mengecek cuaca terkini di suatu kota.
+- kalkulator: untuk menghitung ekspresi matematika.
+- konversi_mata_uang: untuk mengonversi jumlah uang antar mata uang.
+
+Jika pengguna meminta sesuatu yang memerlukan tools, JAWAB HANYA dengan format ini (tanpa teks lain):
+TOOL: nama_tool | INPUT: parameter
+
+Contoh:
+User: "Cuaca di Jakarta bagaimana?"
+Kamu: TOOL: cuaca | INPUT: Jakarta
+
+User: "Hitung 15 * 23"
+Kamu: TOOL: kalkulator | INPUT: 15*23
+
+User: "Konversi 100 USD ke IDR"
+Kamu: TOOL: konversi_mata_uang | INPUT: 100 USD IDR
+
+Jika tidak perlu tools, jawab seperti biasa dengan Bahasa Indonesia yang ramah.""",
     "Guru Python": "Kamu adalah guru Python yang sabar. Jelaskan konsep programming dengan sederhana, beri contoh kode, dan dorong siswa untuk mencoba sendiri. Jangan kasih jawaban langsung — bimbing step by step.",
     "AI Trading Advisor": "Kamu adalah AI trading advisor profesional. Bantu analisis market, beri saran trading, dan jelaskan konsep keuangan dengan Bahasa Indonesia. Disclaimer: semua saran tidak menjamin keuntungan.",
     "AI Sarcastic": "Kamu adalah AI dengan selera humor satir yang tinggi. Jawab pertanyaan dengan sarkasme cerdas, sindiran halus, dan lelucon kering. Tetap gunakan Bahasa Indonesia, dan jangan terlalu kasar.",
@@ -126,7 +136,6 @@ if "history" not in st.session_state:
     st.session_state.history = [
         {"role": "system", "content": "Kamu adalah asisten AI yang membantu. Jawab dalam Bahasa Indonesia."}
     ]
-        
 if "total_tokens" not in st.session_state:
     st.session_state.total_tokens = 0
 if "total_cost" not in st.session_state:
@@ -142,7 +151,7 @@ if "personality" not in st.session_state:
 if "model_label" not in st.session_state:
     st.session_state.model_label = "⚡ Si Cepat & Serbaguna"
 if "temp_label" not in st.session_state:
-    st.session_state.temp_label = "⚖️ Seimbang (0.7)"        
+    st.session_state.temp_label = "⚖️ Seimbang (0.7)"
 
 # ============================================================
 # 7. SIDEBAR (MINIMALIS)
@@ -172,7 +181,7 @@ with st.sidebar:
 
         st.divider()
         st.subheader("🧠 Model & Kreativitas")
-        model = st.selectbox(
+        model_label = st.selectbox(
             "Model AI",
             list(model_mapping.keys()),
             key="model_label"
@@ -189,19 +198,18 @@ with st.sidebar:
         st.divider()
         st.subheader("🔧 Tools")
         use_tools = st.checkbox(
-            "Aktifkan (Kalkulator & Jam)",
+            "Aktifkan tools (cuaca, kalkulator, konversi)",
             value=st.session_state.use_tools,
             key="use_tools"
         )
 
         st.divider()
-        if st.button("🔄 New Chat", use_container_width=True):
+        if st.button("🧹 New Chat", use_container_width=True):
             st.session_state.history = [{"role": "system", "content": system_prompt}]
             st.rerun()
 
     st.divider()
     with st.expander("📝 Riwayat Percakapan", expanded=False):
-        # Ambil 10 pesan terakhir (bukan system prompt)
         chat_msgs = [m for m in st.session_state.history if m["role"] != "system"]
         for msg in chat_msgs[-10:]:
             if msg["role"] == "user":
@@ -210,9 +218,6 @@ with st.sidebar:
                 st.caption(f"🤖 {msg['content'][:60]}...")
 
     st.divider()
-    # ============================================================
-    # UPLOAD FILE DIPINDAHKAN KE SIDEBAR
-    # ============================================================
     with st.expander("📎 Lampiran", expanded=False):
         uploaded_file = st.file_uploader(
             "Upload file",
@@ -242,22 +247,43 @@ for msg in st.session_state.history:
         st.markdown(f'<div class="ai-bubble">{msg["content"]}</div>', unsafe_allow_html=True)
 
 # ============================================================
-# 10. TOOLS: KALKULATOR & JAM
+# 10. TOOLS: CUACA, KALKULATOR, KONVERSI MATA UANG
 # ============================================================
+def get_weather(location):
+    try:
+        geo_url = f"https://geocoding-api.open-meteo.com/v1/search?name={location}&count=1"
+        geo_res = requests.get(geo_url).json()
+        if not geo_res.get("results"):
+            return f"❌ Kota '{location}' tidak ditemukan."
+        lat = geo_res["results"][0]["latitude"]
+        lon = geo_res["results"][0]["longitude"]
+        weather_url = f"https://api.open-meteo.com/v1/forecast?latitude={lat}&longitude={lon}&current_weather=true"
+        weather_res = requests.get(weather_url).json()
+        current = weather_res["current_weather"]
+        return f"🌤️ Cuaca di {location}: {current['temperature']}°C, angin {current['windspeed']} km/jam."
+    except Exception as e:
+        return f"❌ Gagal ambil cuaca: {e}"
 
-def process_tools(user_input):
-    user_lower = user_input.lower()
-    if any(word in user_lower for word in ["hitung", "kalkulator", "berapa"]):
-        try:
-            expr = user_input.split(":")[-1] if ":" in user_input else user_input
-            result = eval(expr)
-            return f"🧮 Hasil: {result}"
-        except:
-            return None
-    if any(word in user_lower for word in ["jam", "waktu", "sekarang", "tanggal", "hari ini"]):
-        now = datetime.now()
-        return f"🕐 Sekarang: {now.strftime('%A, %d %B %Y - %H:%M:%S WIB')}"
-    return None
+def convert_currency(amount, from_curr, to_curr):
+    rates = {
+        "USD": 1.0, "EUR": 0.92, "IDR": 15700,
+        "JPY": 149.5, "GBP": 0.79
+    }
+    if from_curr.upper() not in rates or to_curr.upper() not in rates:
+        return f"❌ Mata uang tidak didukung. Supported: {list(rates.keys())}"
+    usd_amount = amount / rates[from_curr.upper()]
+    converted = usd_amount * rates[to_curr.upper()]
+    return f"💱 {amount} {from_curr.upper()} = {converted:.2f} {to_curr.upper()}"
+
+def calculator(expression):
+    try:
+        allowed = set("0123456789+-*/.() ")
+        if not all(c in allowed for c in expression):
+            return "❌ Ekspresi tidak valid."
+        result = eval(expression)
+        return f"🧮 {expression} = {result}"
+    except Exception as e:
+        return f"❌ Gagal menghitung: {e}"
 
 # ============================================================
 # 11. INPUT CHAT (STICKY OTOMATIS)
@@ -284,7 +310,6 @@ if uploaded_file:
             })
         except:
             st.warning("⚠️ File tidak bisa dibaca.")
-    # Setelah upload, reset widget dan rerun
     st.session_state.sidebar_file_uploader = None
     st.rerun()
 
@@ -295,46 +320,62 @@ if user_input:
     st.markdown(f'<div class="user-bubble">{user_input}</div>', unsafe_allow_html=True)
     st.session_state.history.append({"role": "user", "content": user_input})
 
-    tool_result = None
-    if st.session_state.use_tools:
-        tool_result = process_tools(user_input)
+    with st.chat_message("assistant"):
+        message_placeholder = st.empty()
+        full_response = ""
 
-    if tool_result:
-        ai_reply = tool_result
-        st.markdown(f'<div class="ai-bubble">{ai_reply}</div>', unsafe_allow_html=True)
-        st.session_state.total_tokens += 0
+    with st.spinner("🤔 Berpikir..."):
+        stream = client.chat.completions.create(
+            model=st.session_state.model,
+            messages=st.session_state.history,
+            temperature=st.session_state.temperature,
+            stream=True,
+            stream_options={"include_usage": True}
+        )
+
+        for chunk in stream:
+            if not chunk.choices:
+                continue
+            delta = chunk.choices[0].delta
+            if delta and delta.content is not None:
+                full_response += delta.content
+                message_placeholder.markdown(full_response + "▌")
+            if hasattr(chunk, "usage") and chunk.usage is not None:
+                input_tokens = chunk.usage.prompt_tokens
+                output_tokens = chunk.usage.completion_tokens
+                st.session_state.total_tokens += (input_tokens + output_tokens)
+                cost = (input_tokens * 0.00000059) + (output_tokens * 0.00000079)
+                st.session_state.total_cost += cost
+
+    # ==== CEK APAKAH AI MEMINTA TOOLS ====
+    if full_response.startswith("TOOL:"):
+        try:
+            tool_part = full_response.replace("TOOL:", "").strip()
+            tool_name = tool_part.split("|")[0].strip()
+            tool_input = tool_part.split("INPUT:")[1].strip()
+
+            if tool_name == "cuaca":
+                tool_result = get_weather(tool_input)
+            elif tool_name == "kalkulator":
+                tool_result = calculator(tool_input)
+            elif tool_name == "konversi_mata_uang":
+                parts = tool_input.split()
+                amount = float(parts[0])
+                from_curr = parts[1]
+                to_curr = parts[2]
+                tool_result = convert_currency(amount, from_curr, to_curr)
+            else:
+                tool_result = f"❌ Tool '{tool_name}' tidak dikenal."
+
+            ai_reply = tool_result
+
+        except Exception as e:
+            ai_reply = f"❌ Gagal menjalankan tools: {e}"
     else:
-        # --- STREAMING ---
-        with st.chat_message("assistant"):
-            message_placeholder = st.empty()
-            full_response = ""
+        ai_reply = full_response
 
-        with st.spinner("🤔 Berpikir..."):
-            stream = client.chat.completions.create(
-                model=st.session_state.model,
-                messages=st.session_state.history,
-                temperature=st.session_state.temperature,
-                stream=True,
-                stream_options={"include_usage": True}
-            )
-
-            for chunk in stream:
-                if not chunk.choices:
-                    continue
-                delta = chunk.choices[0].delta
-                if delta and delta.content is not None:
-                    full_response += delta.content
-                    message_placeholder.markdown(full_response + "▌")
-                if hasattr(chunk, "usage") and chunk.usage is not None:
-                    input_tokens = chunk.usage.prompt_tokens
-                    output_tokens = chunk.usage.completion_tokens
-                    st.session_state.total_tokens += (input_tokens + output_tokens)
-                    cost = (input_tokens * 0.00000059) + (output_tokens * 0.00000079)
-                    st.session_state.total_cost += cost
-
-            message_placeholder.markdown(full_response)
-            ai_reply = full_response
-
+    # Tampilkan jawaban akhir
+    message_placeholder.markdown(ai_reply)
     st.session_state.history.append({"role": "assistant", "content": ai_reply})
 
 # ============================================================
