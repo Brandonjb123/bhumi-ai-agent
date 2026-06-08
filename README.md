@@ -13,9 +13,10 @@ Full-stack AI chatbot web app built with **Python**, **Streamlit**, and **Groq A
 - 🎨 **Temperature 3 Tombol** — Atur kreativitas AI: 🎯 Presisi, ⚖️ Seimbang, atau 🎨 Kreatif.
 - 🎭 **Personality Selector** — Pilih kepribadian AI: Asisten Umum, Guru Python, Trading Advisor, Sarcastic, Motivator, Customer Service, Custom.
 - 🧠 **Multi‑Model** — Dukungan Llama 3.3 70B, Llama 3.1 8B, Qwen 3 32B via Groq API.
-- 🔧 **Tools (Kalkulator & Jam)** — Bantu hitung dan cek waktu langsung di chat.
+- 🛠️ **Tools Cerdas** — AI‑driven: cuaca real‑time, kalkulator, dan konversi mata uang.
 - 📎 **Upload File** — Dukungan file teks (`.txt`, `.py`, `.md`) dan gambar (`.jpg`, `.png`).
-- 💾 **Auto‑save History** — Riwayat chat otomatis tersimpan dan pulih saat dibuka kembali.
+- 📝 **Riwayat Percakapan** — Lihat 10 pesan terakhir di sidebar.
+- 🧹 **New Chat** — Mulai percakapan baru kapan saja.
 - 🌙 **Dark Mode** — Tampilan nyaman di segala kondisi.
 - 📊 **Token Counter** — Pantau pemakaian token & estimasi biaya.
 
