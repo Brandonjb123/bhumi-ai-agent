@@ -231,8 +231,9 @@ with st.sidebar:
 # ============================================================
 # 8. HEADER UTAMA
 # ============================================================
-st.title("🤖 Bhumi AI Agent")
+st.title("🤖 Bhumi AI Agent 🟢")
 st.caption(
+    f"_Status: Online — Siap membantu kapan saja_ | "
     f"Personality: {st.session_state.personality} | "
     f"Model: {st.session_state.model_label} | "
     f"Tools: {'ON' if st.session_state.use_tools else 'OFF'} | "
