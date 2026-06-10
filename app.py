@@ -184,14 +184,16 @@ with st.sidebar:
         model_label = st.selectbox(
             "Model AI",
             list(model_mapping.keys()),
-            key="model_label"
+            key="model_label",
+            help="⚡ Si Cepat & Serbaguna cocok untuk tugas harian dan obrolan santai.\n🧠 Si Multibahasa unggul dalam memahami bahasa Indonesia dan analisis kompleks."
         )
         st.session_state.model = model_mapping[st.session_state.model_label]
 
         temp_label = st.radio(
             "🎨 Kreativitas",
             list(temp_options.keys()),
-            key="temp_label"
+            key="temp_label",
+            help="🎯 Presisi menghasilkan jawaban faktual dan konsisten.\n⚖️ Seimbang menyeimbangkan fakta dan kreativitas.\n🎨 Kreatif menghasilkan jawaban variatif dan imajinatif."
         )
         st.session_state.temperature = temp_options[st.session_state.temp_label]
 
@@ -272,7 +274,10 @@ def get_weather(location):
         
         # Cek apakah 'current_weather' ada
         if "current_weather" not in weather_res:
-            return f"⚠️ Data cuaca untuk '{location}' tidak tersedia saat ini (respons: {weather_res.get('reason', 'tidak diketahui')})"
+            reason = weather_res.get("reason", "")
+            if "limit" in reason.lower():
+                return f"⚠️ Maaf, batas harian cek cuaca sudah tercapai. Silakan coba lagi besok atau gunakan tools lain."
+            return f"⚠️ Data cuaca untuk '{location}' tidak tersedia saat ini."
         
         current = weather_res["current_weather"]
         return f"🌤️ Cuaca di {location}: {current['temperature']}°C, angin {current['windspeed']} km/jam."
@@ -394,6 +399,12 @@ if user_input:
     message_placeholder.markdown(ai_reply)
     st.session_state.history.append({"role": "assistant", "content": ai_reply})
 
+    # Auto-scroll ke bawah
+    st.components.v1.html("""
+    <script>
+        window.scrollTo(0, document.body.scrollHeight);
+    </script>                      
+    """, height=0)
 # ============================================================
 # 14. FOOTER
 # ============================================================
